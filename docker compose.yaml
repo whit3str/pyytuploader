@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  youtube-uploader:
+    build: .
+    container_name: youtube-uploader
+    volumes:
+      - ./data:/app/data  # For configuration, tokens, and history
+      - /path/to/your/videos:/app/videos  # Mount your videos directory here
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Paris  # Set your timezone here
