@@ -28,8 +28,8 @@ SCOPES = [
 ]
 
 # File to store uploaded videos info
-UPLOAD_HISTORY_FILE = 'upload_history.json'
-CONFIG_FILE = 'config.json'
+UPLOAD_HISTORY_FILE = 'data/upload_history.json'
+CONFIG_FILE = 'data/config.json'
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -44,21 +44,74 @@ DEFAULT_CONFIG = {
 
 def load_config():
     """Load configuration from config file or create default if not exists"""
+    # Create data directory if it doesn't exist
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+
+    # Read environment variables first, they take precedence
+    env_config = {}
+
+    if 'YTU_VIDEOS_FOLDER' in os.environ:
+        env_config['videos_folder'] = os.environ['YTU_VIDEOS_FOLDER']
+        logging.info(f"Using videos folder from environment: {env_config['videos_folder']}")
+
+    if 'YTU_PRIVACY_STATUS' in os.environ:
+        privacy = os.environ['YTU_PRIVACY_STATUS'].lower()
+        if privacy in ['private', 'unlisted', 'public']:
+            env_config['privacy_status'] = privacy
+            logging.info(f"Using privacy status from environment: {env_config['privacy_status']}")
+        else:
+            logging.warning(f"Invalid privacy status in environment: {privacy}. Using default.")
+
+    if 'YTU_CHECK_INTERVAL' in os.environ:
+        try:
+            interval = int(os.environ['YTU_CHECK_INTERVAL'])
+            if interval > 0:
+                env_config['check_interval'] = interval
+                logging.info(f"Using check interval from environment: {env_config['check_interval']} minutes")
+            else:
+                logging.warning("Invalid check interval in environment (must be > 0). Using default.")
+        except ValueError:
+            logging.warning(f"Invalid check interval format in environment. Using default.")
+
+    if 'YTU_VIDEO_CATEGORY' in os.environ:
+        env_config['video_category'] = os.environ['YTU_VIDEO_CATEGORY']
+        logging.info(f"Using video category from environment: {env_config['video_category']}")
+
+    if 'YTU_DESCRIPTION' in os.environ:
+        env_config['description'] = os.environ['YTU_DESCRIPTION']
+        logging.info(f"Using description from environment")
+
+    if 'YTU_TAGS' in os.environ:
+        try:
+            tags = os.environ['YTU_TAGS'].split(',')
+            env_config['tags'] = [tag.strip() for tag in tags]
+            logging.info(f"Using tags from environment: {env_config['tags']}")
+        except:
+            logging.warning("Error parsing tags from environment. Using default.")
+
+    # Load from config file
+    file_config = DEFAULT_CONFIG.copy()
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
-                return json.load(f)
+                file_config.update(json.load(f))
         except json.JSONDecodeError:
             logging.warning(f"Error reading {CONFIG_FILE}, creating new config")
-            save_config(DEFAULT_CONFIG)
-            return DEFAULT_CONFIG
+            save_config(file_config)
     else:
-        save_config(DEFAULT_CONFIG)
-        return DEFAULT_CONFIG
+        save_config(file_config)
+
+    # Merge configs: env vars override file config, file config overrides defaults
+    config = DEFAULT_CONFIG.copy()
+    config.update(file_config)
+    config.update(env_config)
+
+    return config
 
 
 def save_config(config):
     """Save configuration to config file"""
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=2)
     logging.info("Configuration saved")
@@ -69,9 +122,12 @@ def authenticate_youtube():
     print("Authenticating to YouTube API...")
     logging.info("Authenticating to YouTube API")
     creds = None
-    if os.path.exists('token.json'):
+    token_path = 'data/token.json'
+    os.makedirs(os.path.dirname(token_path), exist_ok=True)
+
+    if os.path.exists(token_path):
         print("Reading existing token...")
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Refreshing expired token...")
@@ -80,9 +136,10 @@ def authenticate_youtube():
         else:
             print("Creating new authentication token...")
             logging.info("Creating new authentication token")
-            flow = InstalledAppFlow.from_client_secrets_file('client_secrets.json', SCOPES)
+            client_secrets_path = os.environ.get('YTU_CLIENT_SECRETS', 'data/client_secrets.json')
+            flow = InstalledAppFlow.from_client_secrets_file(client_secrets_path, SCOPES)
             creds = flow.run_local_server(port=8080)
-        with open('token.json', 'w') as token:
+        with open(token_path, 'w') as token:
             token.write(creds.to_json())
             print("Token saved")
             logging.info("Token saved")
@@ -93,6 +150,7 @@ def authenticate_youtube():
 
 def load_upload_history():
     """Load the history of uploaded videos"""
+    os.makedirs(os.path.dirname(UPLOAD_HISTORY_FILE), exist_ok=True)
     if os.path.exists(UPLOAD_HISTORY_FILE):
         try:
             with open(UPLOAD_HISTORY_FILE, 'r') as f:
@@ -106,6 +164,7 @@ def load_upload_history():
 
 def save_upload_history(history):
     """Save the history of uploaded videos"""
+    os.makedirs(os.path.dirname(UPLOAD_HISTORY_FILE), exist_ok=True)
     with open(UPLOAD_HISTORY_FILE, 'w') as f:
         json.dump(history, f, indent=2)
 

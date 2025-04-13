@@ -9,6 +9,7 @@ A simple and efficient tool for automatically uploading videos to YouTube from a
 - Real-time upload progress tracking
 - Post-upload processing status monitoring
 - Secure OAuth authentication with Google
+- Configurable via environment variables for Docker deployment
 
 ## Prerequisites
 
@@ -29,24 +30,68 @@ pip install -r requirements.txt
 4. Enable the YouTube Data v3 API
 5. Create OAuth credentials (Desktop type)
 6. Download the credentials JSON file and rename it to `client_secrets.json`
-7. Place this file in the project directory
+7. Place this file in the `data` directory
 
 ## Configuration
 
-1. Modify the `folder_path` variable in the `main()` function of the `main.py` file to point to your videos folder
-2. Optionally customize the description, category, and tags in the `main()` function
+### Environment Variables
+
+The following environment variables can be used to configure the application:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `YTU_VIDEOS_FOLDER` | Path to folder containing videos to upload | *empty* |
+| `YTU_PRIVACY_STATUS` | Privacy setting for uploaded videos (private, unlisted, public) | private |
+| `YTU_CHECK_INTERVAL` | Time in minutes between folder scans | 60 |
+| `YTU_CLIENT_SECRETS` | Path to the client secrets JSON file | data/client_secrets.json |
+| `YTU_VIDEO_CATEGORY` | YouTube category ID | 22 (People & Blogs) |
+| `YTU_DESCRIPTION` | Default video description | "Uploaded with YTU" |
+| `YTU_TAGS` | Comma-separated list of tags to apply to videos | YTU Upload |
+
+### Manual Configuration
+
+You can also configure the application interactively:
+
+```bash
+python youtube_uploader.py --setup
+```
 
 ## Usage
 
 Run the main script:
 
 ```bash
-python main.py
+python youtube_uploader.py
 ```
 
 On first execution, a browser will open asking you to authorize the application to access your YouTube account. Once authorized, a token will be saved locally for future use.
 
 The script will find all .mp4 files in the specified folder and upload them one by one to YouTube, using the filename as the video title.
+
+### Command Line Options
+
+```bash
+python youtube_uploader.py --help
+```
+
+## Docker Usage
+
+1. Build the Docker image:
+
+```bash
+docker build -t youtube-uploader .
+```
+
+2. Run using Docker Compose:
+
+```bash
+# Edit docker-compose.yaml to set your video path
+docker-compose up -d
+```
+
+### Docker Configuration
+
+When using Docker, configure the application using environment variables in the `docker-compose.yaml` file.
 
 ## Upload Monitoring
 
@@ -64,7 +109,7 @@ During execution, you will see detailed information about:
 ## Notes
 
 - This script is designed for personal use. For wider distribution, you'll need to complete Google's verification process.
-- By default, videos are uploaded as public. Modify `'privacyStatus': 'public'` in the `upload_video()` function to change this behavior.
+- By default, videos are uploaded as private. Use the `YTU_PRIVACY_STATUS` environment variable to change this.
 
 ## License
 
@@ -73,6 +118,5 @@ This project is free to use.
 ## Next
 
 - Friendlier privacy selector 
-- Docker Image
 - Not uploading duplicates
 - Live script with CRON schedule
