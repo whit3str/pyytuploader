@@ -385,8 +385,17 @@ def scan_and_upload(config):
         # Get list of videos already on YouTube
         existing_videos = get_user_uploaded_videos(youtube)
 
-        # Find all mp4 files in the folder
-        video_files = [f for f in os.listdir(folder_path) if f.endswith('.mp4')]
+        # Find all mp4 files in the folder and subfolders
+        video_files = []
+        for root, dirs, files in os.walk(folder_path):
+            for file in files:
+                if file.endswith('.mp4'):
+                    # Chemin complet du fichier
+                    full_path = os.path.join(root, file)
+                    # Chemin relatif par rapport au dossier de base
+                    rel_path = os.path.relpath(full_path, folder_path)
+                    video_files.append(rel_path)
+
         print(f"Number of .mp4 files found: {len(video_files)}")
         logging.info(f"Number of .mp4 files found: {len(video_files)}")
 
@@ -399,13 +408,13 @@ def scan_and_upload(config):
         uploaded_count = 0
         skipped_count = 0
 
-        for i, filename in enumerate(video_files, 1):
-            print(f"\n[{i}/{len(video_files)}] Processing {filename}")
-            file_path = os.path.join(folder_path, filename)
-            title = os.path.splitext(filename)[0]
+        for i, rel_filename in enumerate(video_files, 1):
+            print(f"\n[{i}/{len(video_files)}] Processing {rel_filename}")
+            file_path = os.path.join(folder_path, rel_filename)
+            title = os.path.splitext(os.path.basename(rel_filename))[0]
 
-            # Check if video has already been uploaded
-            if is_already_uploaded(filename, upload_history):
+            # Check if video has already been uploaded - use rel_filename as key
+            if is_already_uploaded(rel_filename, upload_history):
                 print(f"Video '{title}' has already been uploaded (found in history). Skipping...")
                 logging.info(f"Skipping '{title}' - found in upload history")
                 skipped_count += 1
@@ -416,7 +425,7 @@ def scan_and_upload(config):
                 print(f"Video with title '{title}' already exists on YouTube. Skipping...")
                 logging.info(f"Skipping '{title}' - already exists on YouTube")
                 # Add to history to avoid checking online next time
-                upload_history[filename] = {
+                upload_history[rel_filename] = {
                     "title": title,
                     "video_id": existing_videos[title],
                     "upload_date": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -444,8 +453,8 @@ def scan_and_upload(config):
                 print(f"Video '{title}' uploaded to: {video_url}")
                 logging.info(f"Video '{title}' uploaded successfully in {elapsed_time:.2f} seconds")
 
-                # Add to history
-                upload_history[filename] = {
+                # Add to history - use rel_filename as key
+                upload_history[rel_filename] = {
                     "title": title,
                     "video_id": video_id,
                     "upload_date": time.strftime("%Y-%m-%d %H:%M:%S"),
