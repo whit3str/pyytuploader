@@ -9,11 +9,14 @@ A simple and efficient tool for automatically uploading videos to YouTube from a
 - Real-time upload progress tracking
 - Post-upload processing status monitoring
 - Secure OAuth authentication with Google
-- Configurable via environment variables for Docker deployment
+- Automatic skipping of already uploaded videos
+- Support for nested folders/directories
+- Configurable via environment variables or interactive setup
+- Docker support for containerized deployment
 
 ## Prerequisites
 
-- Python 3.7 or higher
+- Python 3.10 or higher
 - A Google account with YouTube access
 - A Google Cloud Platform project with YouTube API enabled
 
@@ -48,7 +51,7 @@ The following environment variables can be used to configure the application:
 | `YTU_DESCRIPTION` | Default video description | "Uploaded with YTU" |
 | `YTU_TAGS` | Comma-separated list of tags to apply to videos | YTU Upload |
 
-### Manual Configuration
+### Interactive Configuration
 
 You can also configure the application interactively:
 
@@ -64,14 +67,29 @@ Run the main script:
 python youtube_uploader.py
 ```
 
+Or run once without starting the scheduler:
+
+```bash
+python youtube_uploader.py --run-once
+```
+
 On first execution, a browser will open asking you to authorize the application to access your YouTube account. Once authorized, a token will be saved locally for future use.
 
-The script will find all .mp4 files in the specified folder and upload them one by one to YouTube, using the filename as the video title.
+The script will find all .mp4 files in the specified folder (including subfolders) and upload them one by one to YouTube, using the filename as the video title.
 
 ### Command Line Options
 
-```bash
+```
 python youtube_uploader.py --help
+
+options:
+  -h, --help            show this help message and exit
+  -s, --setup           Run interactive setup
+  -r, --run-once        Run once and exit (don't start scheduler)
+  -i INTERVAL, --interval INTERVAL
+                        Set scan interval in minutes
+  -f FOLDER, --folder FOLDER
+                        Set videos folder path
 ```
 
 ## Docker Usage
@@ -100,23 +118,34 @@ During execution, you will see detailed information about:
 - YouTube processing status after upload
 - URL of the uploaded video
 
+## Duplicate Prevention
+
+The application tracks uploaded videos in two ways:
+1. It maintains a local history file (`data/upload_history.json`)
+2. It checks your YouTube channel for videos with the same title
+
+This prevents accidental re-uploads of the same content.
+
 ## Troubleshooting
 
-- If you encounter authentication errors, delete the `token.json` file and restart the script
+- If you encounter authentication errors, delete the `data/token.json` file and restart the script
 - For "unverified" applications, add your account as a test user in the Google Cloud console
 - YouTube can take considerable time to process videos after upload, especially for large files
+- Check the `upload.log` file for detailed debug information
 
 ## Notes
 
 - This script is designed for personal use. For wider distribution, you'll need to complete Google's verification process.
-- By default, videos are uploaded as private. Use the `YTU_PRIVACY_STATUS` environment variable to change this.
+- By default, videos are uploaded as private. Use the `YTU_PRIVACY_STATUS` environment variable or the setup wizard to change this.
+- Uploaded videos are tracked relative to the base videos folder path, so you can move the application without losing upload history.
 
 ## License
 
 This project is free to use.
 
-## Next
+## Upcoming Features
 
-- Friendlier privacy selector 
-- Not uploading duplicates
-- Live script with CRON schedule
+- Custom metadata templates
+- Thumbnail support
+- Advanced scheduling options
+- Progress reporting via notification services
