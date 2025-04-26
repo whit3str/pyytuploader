@@ -2,7 +2,6 @@ version: '3'
 
 services:
   pyytuploader:
-
     container_name: youtube-uploader
     volumes:
       - ./data:/app/data  # For configuration, tokens, and history
@@ -13,6 +12,8 @@ services:
       - YTU_VIDEOS_FOLDER=/app/videos
       - YTU_PRIVACY_STATUS=private  # Options: private, unlisted, public
       - YTU_CHECK_INTERVAL=10  # Minutes between folder scans
+      # Discord webhook for notifications
+      - YTU_DISCORD_WEBHOOK=https://discord.com/api/webhooks/1362740663405379724/lCuZUFbtmU6WEDbFWSH_Gn4rYNTBn7wEQE-362hQid-Mk5UKCRC1J_R7d4pz0j0hYjnx
       # Optional environment variables:
       # - YTU_VIDEO_CATEGORY=22  # YouTube category ID (22 = People & Blogs)
       - YTU_DESCRIPTION=Uploaded with YTU Automated Uploader

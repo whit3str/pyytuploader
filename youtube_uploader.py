@@ -4,6 +4,7 @@ import json
 import logging
 import argparse
 import schedule
+import requests
 from datetime import datetime
 import google.auth
 from google.auth.transport.requests import Request
@@ -38,7 +39,8 @@ DEFAULT_CONFIG = {
     "privacy_status": "private",
     "video_category": "22",  # People & Blogs
     "tags": ["YTU Upload"],
-    "description": "Uploaded with YTU"
+    "description": "Uploaded with YTU",
+    "discord_webhook_url": ""  # New field for Discord webhook
 }
 
 
@@ -88,6 +90,10 @@ def load_config():
             logging.info(f"Using tags from environment: {env_config['tags']}")
         except:
             logging.warning("Error parsing tags from environment. Using default.")
+
+    if 'YTU_DISCORD_WEBHOOK' in os.environ:
+        env_config['discord_webhook_url'] = os.environ['YTU_DISCORD_WEBHOOK']
+        logging.info(f"Using Discord webhook from environment")
 
     # Load from config file
     file_config = DEFAULT_CONFIG.copy()
@@ -295,15 +301,69 @@ def check_processing_status(youtube, video_id, max_checks=3):
     return True
 
 
-def upload_video(youtube, file_path, title, description, category_id, tags, privacy_status='private'):
+def send_discord_notification(webhook_url, title, video_url, file_size_mb):
+    """Send a notification to Discord when a video is uploaded"""
+    if not webhook_url:
+        return False
+
+    try:
+        data = {
+            "embeds": [
+                {
+                    "title": "YouTube Upload Complete",
+                    "description": f"**{title}** has been uploaded successfully!",
+                    "color": 5814783,  # YouTube red
+                    "fields": [
+                        {
+                            "name": "Video Link",
+                            "value": f"[Watch on YouTube]({video_url})",
+                            "inline": True
+                        },
+                        {
+                            "name": "File Size",
+                            "value": f"{file_size_mb:.2f} MB",
+                            "inline": True
+                        },
+                        {
+                            "name": "Upload Time",
+                            "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "inline": True
+                        }
+                    ],
+                    "footer": {
+                        "text": "YouTube Uploader (YTU)"
+                    }
+                }
+            ]
+        }
+
+        response = requests.post(webhook_url, json=data)
+        if response.status_code == 204:
+            print("Discord notification sent successfully")
+            logging.info("Discord notification sent successfully")
+            return True
+        else:
+            print(f"Failed to send Discord notification: {response.status_code}")
+            logging.warning(f"Failed to send Discord notification: {response.status_code}")
+            return False
+
+    except Exception as e:
+        print(f"Error sending Discord notification: {str(e)}")
+        logging.error(f"Error sending Discord notification: {str(e)}")
+        return False
+
+
+def upload_video(youtube, file_path, title, description, category_id, tags, privacy_status='private',
+                 discord_webhook_url=None):
     """Upload a video to YouTube and track the process"""
     print(f"\nPreparing to upload '{title}'...")
     print(f"Source file: {file_path}")
     logging.info(f"Preparing to upload '{title}' from {file_path}")
 
     file_size = os.path.getsize(file_path)
-    print(f"File size: {file_size / 1024 / 1024:.2f} MB")
-    logging.info(f"File size: {file_size / 1024 / 1024:.2f} MB")
+    file_size_mb = file_size / 1024 / 1024
+    print(f"File size: {file_size_mb:.2f} MB")
+    logging.info(f"File size: {file_size_mb:.2f} MB")
 
     body = {
         'snippet': {
@@ -318,8 +378,9 @@ def upload_video(youtube, file_path, title, description, category_id, tags, priv
     }
 
     # Create a MediaFileUpload object with progress tracking
+    # Increased chunk size by 10x (from 1MB to 10MB)
     media = MediaFileUpload(file_path, mimetype='video/mp4',
-                            chunksize=1024 * 1024, resumable=True)
+                            chunksize=10 * 1024 * 1024, resumable=True)
 
     # Create the insert request
     request = youtube.videos().insert(
@@ -354,8 +415,12 @@ def upload_video(youtube, file_path, title, description, category_id, tags, priv
     video_id = response['id']
     video_url = f"https://youtu.be/{video_id}"
     print(f"Video ID: {video_id}")
-    print(f"URL: {video_url}")
+    print(f"Video '{title}' uploaded to: {video_url}")
     logging.info(f"Video ID: {video_id}, URL: {video_url}")
+
+    # Send Discord notification if webhook URL is provided
+    if discord_webhook_url:
+        send_discord_notification(discord_webhook_url, title, video_url, file_size_mb)
 
     # Just check initial processing status to confirm upload was accepted
     check_processing_status(youtube, video_id, max_checks=3)
@@ -442,7 +507,8 @@ def scan_and_upload(config):
                 config['description'],
                 config['video_category'],
                 config['tags'],
-                config['privacy_status']
+                config['privacy_status'],
+                config.get('discord_webhook_url', '')
             )
 
             if result:
@@ -450,7 +516,6 @@ def scan_and_upload(config):
                 elapsed_time = time.time() - start_time
 
                 print(f"Total upload and verification time: {elapsed_time:.2f} seconds")
-                print(f"Video '{title}' uploaded to: {video_url}")
                 logging.info(f"Video '{title}' uploaded successfully in {elapsed_time:.2f} seconds")
 
                 # Add to history - use rel_filename as key
@@ -552,6 +617,13 @@ def interactive_setup():
     if privacy in privacy_options:
         config['privacy_status'] = privacy_options[privacy]
 
+    # Discord webhook
+    webhook_url = input(f"Enter Discord webhook URL for notifications (leave blank to disable): ").strip()
+    if webhook_url:
+        config['discord_webhook_url'] = webhook_url
+    elif 'discord_webhook_url' in config and input("Clear existing Discord webhook? (y/n): ").strip().lower() == 'y':
+        config['discord_webhook_url'] = ""
+
     # Save configuration
     save_config(config)
     print("Configuration saved.")
@@ -566,6 +638,7 @@ def main():
     parser.add_argument("-r", "--run-once", action="store_true", help="Run once and exit (don't start scheduler)")
     parser.add_argument("-i", "--interval", type=int, help="Set scan interval in minutes")
     parser.add_argument("-f", "--folder", help="Set videos folder path")
+    parser.add_argument("-d", "--discord", help="Set Discord webhook URL")
     args = parser.parse_args()
 
     try:
@@ -596,10 +669,15 @@ def main():
                 print(f"Error: Folder '{folder_path}' does not exist or is not a directory")
                 return
 
+        if args.discord:
+            config['discord_webhook_url'] = args.discord
+            save_config(config)
+
         print("\n=== YouTube Uploader (YTU) ===")
         print(f"Videos folder: {config['videos_folder']}")
         print(f"Scan interval: {config['check_interval']} minutes")
         print(f"Privacy setting: {config['privacy_status']}")
+        print(f"Discord notifications: {'Enabled' if config.get('discord_webhook_url') else 'Disabled'}")
 
         # Run once if requested
         if args.run_once:
