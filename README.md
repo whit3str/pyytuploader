@@ -1,151 +1,124 @@
-# YouTube Uploader (YTU)
+PyYTUploader
+============
 
-A simple and efficient tool for automatically uploading videos to YouTube from a local folder.
+PyYTUploader est un outil automatisé pour télécharger des vidéos sur YouTube depuis un dossier local. Il est particulièrement utile pour les créateurs de contenu qui souhaitent automatiser leur processus de publication.
 
-## Features
+Fonctionnalités
+---------------
 
-- Automatic upload of multiple video files (.mp4) to YouTube
-- Uses the filename as the video title
-- Real-time upload progress tracking
-- Post-upload processing status monitoring
-- Secure OAuth authentication with Google
-- Automatic skipping of already uploaded videos
-- Support for nested folders/directories
-- Configurable via environment variables or interactive setup
-- Docker support for containerized deployment
+*   Téléchargement automatique de vidéos vers YouTube
+    
+*   Surveillance périodique d'un dossier pour détecter de nouvelles vidéos
+    
+*   Support pour les métadonnées Ganymede (pour les VODs Twitch)
+    
+*   Création automatique de playlists par chaîne
+    
+*   Notifications Discord pour les téléchargements réussis
+    
+*   Reprise des téléchargements interrompus
+    
+*   Gestion des miniatures
+    
 
-## Prerequisites
+Installation
+------------
 
-- Python 3.10 or higher
-- A Google account with YouTube access
-- A Google Cloud Platform project with YouTube API enabled
+Prérequis
+---------
 
-## Installation
+*   Python 3.7 ou supérieur
+    
+*   Un compte Google avec accès à l'API YouTube
+    
 
-1. Clone or download this repository
-2. Install the required dependencies:
+Installation avec Docker (recommandée)
+--------------------------------------
 
-```bash
-pip install -r requirements.txt
-```
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   bashdocker pull ghcr.io/whit3str/pyytuploader:dev   `
 
-3. Create a project in the [Google Cloud Console](https://console.cloud.google.com/)
-4. Enable the YouTube Data v3 API
-5. Create OAuth credentials (Desktop type)
-6. Download the credentials JSON file and rename it to `client_secrets.json`
-7. Place this file in the `data` directory
+Configuration Docker
+--------------------
 
-## Configuration
+Créez un fichier docker-compose.yml :
 
-### Environment Variables
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   textversion: '3'  services:    pyytuploader:      image: ghcr.io/whit3str/pyytuploader:dev      container_name: youtube-uploader      volumes:        - /chemin/vers/config:/app/data  # Pour la configuration, les tokens et l'historique        - /chemin/vers/videos:/app/videos  # Montez votre répertoire de vidéos ici      restart: unless-stopped      environment:        - TZ=Europe/Paris  # Définissez votre fuseau horaire ici        - YTU_VIDEOS_FOLDER=/app/videos        - YTU_PRIVACY_STATUS=private  # Options: private, unlisted, public        - YTU_CHECK_INTERVAL=60  # Minutes entre les analyses de dossier        - YTU_DISCORD_WEBHOOK=https://discord.com/api/webhooks/votre-webhook        # Variables d'environnement optionnelles:        - YTU_VIDEO_CATEGORY=20        - YTU_DESCRIPTION=Téléchargé avec YTU Automated Uploader        - YTU_GANYMEDE_MODE=true        - YTU_TAGS=ganymede,vod        - YTU_AUTO_PLAYLIST=true   `
 
-The following environment variables can be used to configure the application:
+Configuration
+-------------
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `YTU_VIDEOS_FOLDER` | Path to folder containing videos to upload | *empty* |
-| `YTU_PRIVACY_STATUS` | Privacy setting for uploaded videos (private, unlisted, public) | private |
-| `YTU_CHECK_INTERVAL` | Time in minutes between folder scans | 60 |
-| `YTU_CLIENT_SECRETS` | Path to the client secrets JSON file | data/client_secrets.json |
-| `YTU_VIDEO_CATEGORY` | YouTube category ID | 22 (People & Blogs) |
-| `YTU_DESCRIPTION` | Default video description | "Uploaded with YTU" |
-| `YTU_TAGS` | Comma-separated list of tags to apply to videos | YTU Upload |
+Obtenir des identifiants OAuth
+------------------------------
 
-### Interactive Configuration
+1.  Allez sur [Google Cloud Console](https://console.cloud.google.com/)
+    
+2.  Créez un nouveau projet
+    
+3.  Activez l'API YouTube Data v3
+    
+4.  Créez des identifiants OAuth 2.0
+    
+5.  Téléchargez le fichier JSON et placez-le dans le dossier /app/data/client\_secrets.json
+    
 
-You can also configure the application interactively:
+Variables d'environnement
+-------------------------
 
-```bash
-python youtube_uploader.py --setup
-```
+VariableDescriptionValeur par défautYTU\_VIDEOS\_FOLDERDossier contenant les vidéos à télécharger''YTU\_PRIVACY\_STATUSStatut de confidentialité des vidéos'private'YTU\_CHECK\_INTERVALIntervalle de vérification (minutes)60YTU\_CLIENT\_SECRETSChemin vers le fichier client\_secrets.json'data/client\_secrets.json'YTU\_VIDEO\_CATEGORYID de catégorie YouTube'22'YTU\_DESCRIPTIONDescription par défaut des vidéos'Uploaded with YTU'YTU\_TAGSTags séparés par des virgules'YTU Upload'YTU\_GANYMEDE\_MODEActiver le mode Ganymede pour les VODs'false'YTU\_AUTO\_PLAYLISTAjouter automatiquement aux playlists'false'YTU\_DISCORD\_WEBHOOKURL du webhook Discord pour les notifications''
 
-## Usage
+Utilisation
+-----------
 
-Run the main script:
+Première exécution
+------------------
 
-```bash
-python youtube_uploader.py
-```
+Lors de la première exécution, vous devrez autoriser l'application à accéder à votre compte YouTube :
 
-Or run once without starting the scheduler:
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   bashdocker-compose up   `
 
-```bash
-python youtube_uploader.py --run-once
-```
+Suivez les instructions pour l'authentification OAuth.
 
-On first execution, a browser will open asking you to authorize the application to access your YouTube account. Once authorized, a token will be saved locally for future use.
+Mode Ganymede
+-------------
 
-The script will find all .mp4 files in the specified folder (including subfolders) and upload them one by one to YouTube, using the filename as the video title.
+Le mode Ganymede est conçu pour les VODs Twitch téléchargées avec [Ganymede](https://github.com/Zibbp/ganymede). Il extrait automatiquement les métadonnées des fichiers JSON associés.
 
-### Command Line Options
+Notifications Discord
+---------------------
 
-```
-python youtube_uploader.py --help
+Pour recevoir des notifications sur Discord lorsqu'une vidéo est téléchargée avec succès :
 
-options:
-  -h, --help            show this help message and exit
-  -s, --setup           Run interactive setup
-  -r, --run-once        Run once and exit (don't start scheduler)
-  -i INTERVAL, --interval INTERVAL
-                        Set scan interval in minutes
-  -f FOLDER, --folder FOLDER
-                        Set videos folder path
-```
+1.  Créez un webhook dans votre serveur Discord
+    
+2.  Ajoutez l'URL du webhook dans la variable d'environnement YTU\_DISCORD\_WEBHOOK
+    
 
-## Docker Usage
+Dépannage
+---------
 
-1. Build the Docker image:
+Les notifications Discord ne fonctionnent pas
+---------------------------------------------
 
-```bash
-docker build -t youtube-uploader .
-```
+*   Vérifiez que l'URL du webhook est correcte
+    
+*   Assurez-vous que le webhook a les permissions nécessaires
+    
+*   Vérifiez les journaux Docker pour les erreurs
+    
 
-2. Run using Docker Compose:
+Problèmes d'authentification
+----------------------------
 
-```bash
-# Edit docker-compose.yaml to set your video path
-docker-compose up -d
-```
+Si vous rencontrez des problèmes d'authentification :
 
-### Docker Configuration
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   bashdocker-compose down  docker volume rm youtube-uploader_data  docker-compose up   `
 
-When using Docker, configure the application using environment variables in the `docker-compose.yaml` file.
+Licence
+-------
 
-## Upload Monitoring
+Ce projet est sous licence MIT.
 
-During execution, you will see detailed information about:
-- Upload progress (percentage)
-- YouTube processing status after upload
-- URL of the uploaded video
+Contributions
+-------------
 
-## Duplicate Prevention
-
-The application tracks uploaded videos in two ways:
-1. It maintains a local history file (`data/upload_history.json`)
-2. It checks your YouTube channel for videos with the same title
-
-This prevents accidental re-uploads of the same content.
-
-## Troubleshooting
-
-- If you encounter authentication errors, delete the `data/token.json` file and restart the script
-- For "unverified" applications, add your account as a test user in the Google Cloud console
-- YouTube can take considerable time to process videos after upload, especially for large files
-- Check the `upload.log` file for detailed debug information
-
-## Notes
-
-- This script is designed for personal use. For wider distribution, you'll need to complete Google's verification process.
-- By default, videos are uploaded as private. Use the `YTU_PRIVACY_STATUS` environment variable or the setup wizard to change this.
-- Uploaded videos are tracked relative to the base videos folder path, so you can move the application without losing upload history.
-
-## License
-
-This project is free to use.
-
-## Upcoming Features
-
-- Custom metadata templates
-- Thumbnail support
-- Advanced scheduling options
-- Progress reporting via notification services
+Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
