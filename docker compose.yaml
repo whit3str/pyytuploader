@@ -16,8 +16,8 @@ services:
       # Discord webhook for notifications
       - YTU_DISCORD_WEBHOOK=
       # Optional environment variables:
-      # - YTU_VIDEO_CATEGORY=22  # YouTube category ID (22 = People & Blogs)
-      - YTU_DESCRIPTION=Uploaded with YTU Automated Uploader
+      # - YTU_VIDEO_CATEGORY=22  #https://gist.github.com/dgp/1b24bf2961521bd75d6c#file-youtube-api-video-category-id-list
+      - YTU_DESCRIPTION=
       - YTU_GANYMEDE_MODE=true
       # - YTU_TAGS=auto-upload,ytu,video
       # - YTU_CLIENT_SECRETS=/app/data/client_secrets.json  # Path to client secrets file
