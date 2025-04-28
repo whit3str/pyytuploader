@@ -1,159 +1,157 @@
-PyYTUploader
-============
+# PyYTUploader
 
-PyYTUploader est un outil automatisé pour télécharger des vidéos sur YouTube depuis un dossier local. Il est particulièrement utile pour les créateurs de contenu qui souhaitent automatiser leur processus de publication.
+An automated tool to upload videos to YouTube from a local folder. It's particularly useful for content creators who want to automate their publishing process.
 
-Fonctionnalités
----------------
+## Features
 
-*   Téléchargement automatique de vidéos vers YouTube
-    
-*   Surveillance périodique d'un dossier pour détecter de nouvelles vidéos
-    
-*   Support pour les métadonnées Ganymede (pour les VODs Twitch)
-    
-*   Création automatique de playlists par chaîne
-    
-*   Notifications Discord pour les téléchargements réussis
-    
-*   Reprise des téléchargements interrompus
-    
-*   Gestion des miniatures
-    
+* Automatic upload of videos to YouTube
+* Periodic monitoring of a folder for new videos
+* Support for Ganymede metadata (for Twitch VODs)
+* Automatic playlist creation by channel
+* Discord notifications for successful uploads with video thumbnails
+* Resume interrupted uploads
+* Thumbnail management
 
-Installation
-------------
+## Installation
 
-Prérequis
----------
+### Prerequisites
 
-*   Python 3.7 ou supérieur
-    
-*   Un compte Google avec accès à l'API YouTube
-    
+* Python 3.7 or higher
+* A Google account with YouTube API access
 
-Installation avec Docker (recommandée)
---------------------------------------
+### Installation with Docker (recommended)
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   bashdocker pull ghcr.io/whit3str/pyytuploader:dev   `
+```bash
+docker pull ghcr.io/whit3str/pyytuploader:latest
+```
 
-Configuration Docker
---------------------
+### Docker Configuration
 
-Créez un fichier docker-compose.yml :
+Create a docker-compose.yml file:
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   textversion: '3'  services:    pyytuploader:      image: ghcr.io/whit3str/pyytuploader:dev      container_name: youtube-uploader      volumes:        - /chemin/vers/config:/app/data  # Pour la configuration, les tokens et l'historique        - /chemin/vers/videos:/app/videos  # Montez votre répertoire de vidéos ici      restart: unless-stopped      environment:        - TZ=Europe/Paris  # Définissez votre fuseau horaire ici        - YTU_VIDEOS_FOLDER=/app/videos        - YTU_PRIVACY_STATUS=private  # Options: private, unlisted, public        - YTU_CHECK_INTERVAL=60  # Minutes entre les analyses de dossier        - YTU_DISCORD_WEBHOOK=https://discord.com/api/webhooks/votre-webhook        # Variables d'environnement optionnelles:        - YTU_VIDEO_CATEGORY=20        - YTU_DESCRIPTION=Téléchargé avec YTU Automated Uploader        - YTU_GANYMEDE_MODE=true        - YTU_TAGS=ganymede,vod        - YTU_AUTO_PLAYLIST=true   `
+```yaml
+version: '3'
 
-Configuration
--------------
+services:
+  pyytuploader:
+    image: ghcr.io/whit3str/pyytuploader:latest
+    container_name: youtube-uploader
+    volumes:
+      - ./data:/app/data  # For configuration, tokens, and history
+      - /path/to/videos:/app/videos  # Mount your videos directory here
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Paris  # Set your timezone here
+      - YTU_VIDEOS_FOLDER=/app/videos
+      - YTU_PRIVACY_STATUS=private  # Options: private, unlisted, public
+      - YTU_CHECK_INTERVAL=60  # Minutes between folder scans
+      # Discord webhook for notifications
+      - YTU_DISCORD_WEBHOOK=
+      # Optional environment variables:
+      # - YTU_VIDEO_CATEGORY=20  # Gaming category
+      - YTU_DESCRIPTION=Uploaded with YTU Automated Uploader
+      - YTU_GANYMEDE_MODE=true
+      # - YTU_TAGS=auto-upload,ytu,video
+      - YTU_AUTO_PLAYLIST=true
+```
 
-Obtenir des identifiants OAuth
-------------------------------
+## Configuration
 
-1.  Allez sur [Google Cloud Console](https://console.cloud.google.com/)
-    
-2.  Créez un nouveau projet
-    
-3.  Activez l'API YouTube Data v3
-    
-4.  Créez des identifiants OAuth 2.0
-    
-5.  Téléchargez le fichier JSON et placez-le dans le dossier /app/data/client\_secrets.json
-    
+### Obtaining OAuth Credentials
 
-Variables d'environnement
--------------------------
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project
+3. Enable the YouTube Data v3 API
+4. Create OAuth 2.0 credentials
+5. Download the JSON file and place it in the /app/data/client_secrets.json folder
 
-VariableDescriptionValeur par défautYTU\_VIDEOS\_FOLDERDossier contenant les vidéos à télécharger''YTU\_PRIVACY\_STATUSStatut de confidentialité des vidéos'private'YTU\_CHECK\_INTERVALIntervalle de vérification (minutes)60YTU\_CLIENT\_SECRETSChemin vers le fichier client\_secrets.json'data/client\_secrets.json'YTU\_VIDEO\_CATEGORYID de catégorie YouTube'22'YTU\_DESCRIPTIONDescription par défaut des vidéos'Uploaded with YTU'YTU\_TAGSTags séparés par des virgules'YTU Upload'YTU\_GANYMEDE\_MODEActiver le mode Ganymede pour les VODs'false'YTU\_AUTO\_PLAYLISTAjouter automatiquement aux playlists'false'YTU\_DISCORD\_WEBHOOKURL du webhook Discord pour les notifications''
+### Environment Variables
 
-Categories 
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| YTU_VIDEOS_FOLDER | Folder containing videos to upload | '' |
+| YTU_PRIVACY_STATUS | Privacy status of videos | 'private' |
+| YTU_CHECK_INTERVAL | Check interval (minutes) | 60 |
+| YTU_CLIENT_SECRETS | Path to client_secrets.json | 'data/client_secrets.json' |
+| YTU_VIDEO_CATEGORY | YouTube category ID | '22' |
+| YTU_DESCRIPTION | Default video description | 'Uploaded with YTU' |
+| YTU_TAGS | Tags separated by commas | 'YTU Upload' |
+| YTU_GANYMEDE_MODE | Enable Ganymede mode for VODs | 'false' |
+| YTU_AUTO_PLAYLIST | Automatically add to playlists | 'false' |
+| YTU_DISCORD_WEBHOOK | Discord webhook URL for notifications | '' |
 
-1	Film & Animation
-2	Autos & Vehicles
-10	Music
-15	Pets & Animals
-17	Sports
-18	Short Movies
-19	Travel & Events
-20	Gaming
-21	Videoblogging
-22	People & Blogs
-23	Comedy
-24	Entertainment
-25	News & Politics
-26	Howto & Style
-27	Education
-28	Science & Technology
-29	Nonprofits & Activism
-30	Movies
-31	Anime/Animation
-32	Action/Adventure
-33	Classics
-34	Comedy
-35	Documentary
-36	Drama
-37	Family
-38	Foreign
-39	Horror
-40	Sci-Fi/Fantasy
-41	Thriller
-42	Shorts
-43	Shows
-44	Trailers
+### Categories 
 
-Utilisation
------------
+| ID | Category |
+|----|----------|
+| 1 | Film & Animation |
+| 2 | Autos & Vehicles |
+| 10 | Music |
+| 15 | Pets & Animals |
+| 17 | Sports |
+| 20 | Gaming |
+| 22 | People & Blogs |
+| 23 | Comedy |
+| 24 | Entertainment |
+| 25 | News & Politics |
+| 26 | Howto & Style |
+| 27 | Education |
+| 28 | Science & Technology |
+| 29 | Nonprofits & Activism |
 
-Première exécution
-------------------
+## Usage
 
-Lors de la première exécution, vous devrez autoriser l'application à accéder à votre compte YouTube :
+### First Run
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   bashdocker-compose up   `
+On first run, you'll need to authorize the application to access your YouTube account:
 
-Suivez les instructions pour l'authentification OAuth.
+```bash
+docker-compose up
+```
 
-Mode Ganymede
--------------
+Follow the instructions for OAuth authentication.
 
-Le mode Ganymede est conçu pour les VODs Twitch téléchargées avec [Ganymede](https://github.com/Zibbp/ganymede). Il extrait automatiquement les métadonnées des fichiers JSON associés.
+### Ganymede Mode
 
-Notifications Discord
----------------------
+Ganymede mode is designed for Twitch VODs downloaded with [Ganymede](https://github.com/Zibbp/ganymede). It automatically extracts metadata from associated JSON files.
 
-Pour recevoir des notifications sur Discord lorsqu'une vidéo est téléchargée avec succès :
+### Discord Notifications
 
-1.  Créez un webhook dans votre serveur Discord
-    
-2.  Ajoutez l'URL du webhook dans la variable d'environnement YTU\_DISCORD\_WEBHOOK
-    
+To receive notifications on Discord when a video is successfully uploaded:
 
-Dépannage
----------
+1. Create a webhook in your Discord server
+2. Add the webhook URL to the YTU_DISCORD_WEBHOOK environment variable
 
-Les notifications Discord ne fonctionnent pas
----------------------------------------------
+The notifications include:
+- Video title
+- Channel name
+- Privacy status
+- Upload timestamp
+- Video thumbnail (high quality)
+- Link to the uploaded video
 
-*   Vérifiez que l'URL du webhook est correcte
-    
-*   Assurez-vous que le webhook a les permissions nécessaires
-    
-*   Vérifiez les journaux Docker pour les erreurs
-    
+## Troubleshooting
 
-Problèmes d'authentification
-----------------------------
+### Discord notifications not working
 
-Si vous rencontrez des problèmes d'authentification :
+* Check that the webhook URL is correct
+* Make sure the webhook has the necessary permissions
+* Check Docker logs for errors
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   bashdocker-compose down  docker volume rm youtube-uploader_data  docker-compose up   `
+### Authentication issues
 
-Licence
--------
+If you encounter authentication issues:
 
-Ce projet est sous licence MIT.
+```bash
+docker-compose down
+docker volume rm youtube-uploader_data
+docker-compose up
+```
 
-Contributions
--------------
+## License
 
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+This project is under the MIT License.
+
+## Contributing
+
+Contributions are welcome! Feel free to open an issue or submit a pull request.

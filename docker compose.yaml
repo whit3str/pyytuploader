@@ -2,22 +2,23 @@ version: '3'
 
 services:
   pyytuploader:
-    image : ghcr.io/whit3str/pyytuploader:latest
+    image: ghcr.io/whit3str/pyytuploader:latest
     container_name: youtube-uploader
     volumes:
-      - /path/to/data:/app/data  # For configuration, tokens, and history
+      - ./data:/app/data  # For configuration, tokens, and history
       - /path/to/videos:/app/videos  # Mount your videos directory here
     restart: unless-stopped
     environment:
       - TZ=Europe/Paris  # Set your timezone here
       - YTU_VIDEOS_FOLDER=/app/videos
       - YTU_PRIVACY_STATUS=private  # Options: private, unlisted, public
-      - YTU_CHECK_INTERVAL=10  # Minutes between folder scans
+      - YTU_CHECK_INTERVAL=60  # Minutes between folder scans
       # Discord webhook for notifications
       - YTU_DISCORD_WEBHOOK=
       # Optional environment variables:
-      # - YTU_VIDEO_CATEGORY=22  #https://gist.github.com/dgp/1b24bf2961521bd75d6c#file-youtube-api-video-category-id-list
-      - YTU_DESCRIPTION=
-      - YTU_GANYMEDE_MODE=true
-      # - YTU_TAGS=auto-upload,ytu,video
+      - YTU_VIDEO_CATEGORY=20  # Gaming category (20 for Gaming, 22 for People & Blogs)
+      - YTU_DESCRIPTION=Uploaded with PyYTUploader
+      - YTU_GANYMEDE_MODE=true  # Set to true if using Ganymede for Twitch VODs
+      - YTU_TAGS=twitch,vod,archive,gaming
+      - YTU_AUTO_PLAYLIST=true  # Automatically add videos to channel playlists
       # - YTU_CLIENT_SECRETS=/app/data/client_secrets.json  # Path to client secrets file

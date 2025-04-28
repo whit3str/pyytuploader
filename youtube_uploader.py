@@ -698,7 +698,10 @@ def process_video(youtube, video_path, config):
         if webhook_url:
             video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-            # Créer un message avec un embed pour une meilleure présentation
+            # URL de la miniature YouTube
+            thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+
+            # Message avec un embed contenant la miniature
             message = {
                 "embeds": [
                     {
@@ -721,16 +724,14 @@ def process_video(youtube, video_path, config):
                         "footer": {
                             "text": "Uploaded with PyYTUploader"
                         },
-                        "timestamp": datetime.datetime.now().isoformat()
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        # Ajout de la miniature YouTube
+                        "image": {
+                            "url": thumbnail_url
+                        }
                     }
                 ]
             }
-
-            # Si nous avons une miniature, l'ajouter à l'embed
-            if "thumbnail_path" in options and options["thumbnail_path"]:
-                message["embeds"][0]["thumbnail"] = {
-                    "url": video_url  # On ne peut pas envoyer directement l'image locale, on utilise la vidéo
-                }
 
             send_discord_notification(webhook_url, message)
 
