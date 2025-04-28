@@ -1,7 +1,6 @@
 <p align="center">
   <img src="https://github.com/whit3str/pyytuploader/blob/main/resources/icon.png?raw=true" alt="Logo" width="100"/>
-  <br>
-  <b>PyYTUploader</b>
+  <h1 align="center">PyYTUploader</h1>
 </p>
 
 An automated tool to upload videos to YouTube from a local folder. It's particularly useful for content creators who want to automate their publishing process.
