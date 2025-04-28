@@ -35,6 +35,9 @@ jobs:
 
     - name: Check Python version
       run: python --version
+    
+    - name: Install pytest
+      run: python -m pip install pytest
 
     - name: Run tests
       run: pytest -v
