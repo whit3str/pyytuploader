@@ -27,6 +27,40 @@ TOKEN_FILE = 'data/token.json'
 UPLOADS_FILE = 'data/uploads.json'
 
 
+def clean_youtube_title(title):
+    """
+    Nettoie un titre pour le rendre compatible avec l'API YouTube.
+    
+    Args:
+        title (str): Titre original
+        
+    Returns:
+        str: Titre nettoyé et valide pour YouTube
+    """
+    if not title or not title.strip():
+        return "Untitled Video"
+    
+    # Limiter la longueur du titre (YouTube accepte max 100 caractères)
+    title = title[:100]
+    
+    # Remplacer les caractères problématiques
+    title = title.replace("\u0026", "&")
+    
+    # Supprimer les caractères de contrôle et autres caractères problématiques
+    import re
+    # Supprimer les caractères de contrôle (0x00-0x1F et 0x7F)
+    title = re.sub(r'[\x00-\x1F\x7F]', '', title)
+    
+    # Remplacer les caractères spéciaux qui peuvent poser problème
+    title = re.sub(r'[<>:"\/\\|?*]', '', title)
+    
+    # S'assurer que le titre n'est pas vide après nettoyage
+    if not title.strip():
+        return "Untitled Video"
+    
+    return title.strip()
+
+
 def send_discord_notification(webhook_url, message):
     """
     Envoie une notification à un webhook Discord.
@@ -179,18 +213,9 @@ def extract_ganymede_metadata(video_path):
 
             # Extract title if available and clean it
             if "title" in info_data and info_data["title"]:
-                # Nettoyer le titre en supprimant les caractères non autorisés
-                title = info_data["title"]
-                # Remplacer les caractères spéciaux qui peuvent poser problème
-                title = title.replace("<", "").replace(">", "")
-                # Remplacer \u0026 par & (si encodé dans le JSON)
-                title = title.replace("\u0026", "&")
-                # S'assurer que le titre n'est pas vide après nettoyage
-                if title.strip():
-                    metadata["title"] = title
-                else:
-                    # Utiliser un titre par défaut si le titre est vide après nettoyage
-                    metadata["title"] = f"Stream {video_id}"
+                # Nettoyer le titre en utilisant notre nouvelle fonction
+                title = clean_youtube_title(info_data["title"])
+                metadata["title"] = title
             else:
                 # Utiliser un titre par défaut si aucun titre n'est trouvé
                 metadata["title"] = f"Stream {video_id}"
@@ -281,10 +306,18 @@ def upload_video(youtube, video_path, options=None, is_ganymede=False):
         if "game_name" in ganymede_metadata:
             options["game_name"] = ganymede_metadata["game_name"]
 
+    # Vérifier et nettoyer le titre pour s'assurer qu'il est valide
+    if "title" in options:
+        options["title"] = clean_youtube_title(options["title"])
+    else:
+        # Utiliser le nom du fichier comme titre par défaut
+        default_title = os.path.splitext(os.path.basename(video_path))[0]
+        options["title"] = clean_youtube_title(default_title)
+
     # Prepare the request body
     body = {
         'snippet': {
-            'title': options.get('title', os.path.splitext(os.path.basename(video_path))[0]),
+            'title': options.get('title', 'Untitled Video'),
             'description': options.get('description', 'Uploaded with YTU'),
             'tags': options.get('tags', ['YTU']),
             'categoryId': options.get('categoryId', '22')
@@ -299,6 +332,11 @@ def upload_video(youtube, video_path, options=None, is_ganymede=False):
     if is_ganymede and 'game_name' in options:
         # Définir la catégorie comme "Gaming" (ID 20)
         body['snippet']['categoryId'] = '20'
+
+    # Vérification finale du titre avant upload
+    if not body['snippet']['title'] or len(body['snippet']['title'].strip()) == 0:
+        body['snippet']['title'] = f"Video {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        print(f"Warning: Empty title detected, using default title: {body['snippet']['title']}")
 
     # Prepare the media file
     media = MediaFileUpload(video_path,
@@ -365,8 +403,6 @@ def upload_video(youtube, video_path, options=None, is_ganymede=False):
             'success': False,
             'error': str(e)
         }
-
-
 def find_playlist_by_name(youtube, playlist_name):
     """
     Recherche une playlist par son nom et retourne son ID.
