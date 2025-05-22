@@ -155,6 +155,18 @@ docker-compose up
 
 This project is under the MIT License.
 
+## To-Do
+
+* [ ]   YouTube quota management: API limits monitoring and intelligent queuing
+* [ ]   Detailed metrics: Upload times, success rates, transfer speeds
+* [ ]   Structured logging: JSON format for easier analysis
+* [ ]   Health checks: Health endpoints for Docker and Kubernetes
+* [ ]   Parallel uploads: Upload multiple videos simultaneously (configurable)
+* [ ]   Intelligent compression: Automatic compression for large files
+* [ ]   System alerts: Notifications for issues (quota, errors)
+* [ ]   Prometheus metrics: Export metrics for external monitoring
+* [ ]   Multi-architecture Docker: ARM64 support for Raspberry Pi
+
 ## Contributing
 
 Contributions are welcome! Feel free to open an issue or submit a pull request.
