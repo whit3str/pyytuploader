@@ -725,9 +725,11 @@ def process_video(youtube, video_path, config):
         video_title = result.get('title')
         record_upload(video_path, video_id)
 
-        # Add to channel playlist if enabled and channel name was detected
-        if config['auto_playlist'] and channel_name:
+        # Add to channel playlist if auto_playlist enabled AND Ganymede mode is active (nouveau comportement)
+        if config['auto_playlist'] and channel_name and config['ganymede_mode']:
             add_to_channel_playlist(youtube, video_id, channel_name)
+        elif config['auto_playlist'] and channel_name and not config['ganymede_mode']:
+            print("Ajout à la playlist désactivé (Ganymede Mode inactif)")
 
         # Send Discord notification if webhook URL is configured
         webhook_url = config.get('discord_webhook')
