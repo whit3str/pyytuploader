@@ -762,7 +762,7 @@ def process_video(youtube, video_path, config):
                         "footer": {
                             "text": "Uploaded with PyYTUploader"
                         },
-                        "timestamp": datetime.datetime.now().isoformat(),
+                        "timestamp": datetime.datetime.now(pytz.timezone(os.environ.get('TZ', 'Europe/Paris'))).isoformat(),
                         # Ajout de la miniature YouTube
                         "image": {
                             "url": thumbnail_url
