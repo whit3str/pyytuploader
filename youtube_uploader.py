@@ -274,8 +274,12 @@ def extract_ganymede_metadata(video_path):
             channel_name = None
             if "user_name" in info_data:
                 channel_name = info_data["user_name"]
-            elif "channel" in info_data and "name" in info_data["channel"]:
-                channel_name = info_data["channel"]["name"]
+            elif "channel" in info_data:
+                # Priorité au display_name, fallback sur name si display_name n'existe pas
+                if "display_name" in info_data["channel"]:
+                    channel_name = info_data["channel"]["display_name"]
+                elif "name" in info_data["channel"]:
+                    channel_name = info_data["channel"]["name"]
 
             if channel_name:
                 metadata[
