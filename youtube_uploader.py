@@ -57,6 +57,42 @@ def get_local_timestamp():
     return local_time.isoformat()
 
 
+def get_channel_display_name(video_path, fallback_channel_name):
+    """
+    Récupère le display_name de la chaîne depuis les métadonnées Ganymede.
+    
+    Args:
+        video_path (str): Chemin vers le fichier vidéo
+        fallback_channel_name (str): Nom de chaîne de fallback (depuis le dossier)
+    
+    Returns:
+        str: Display name de la chaîne ou fallback
+    """
+    try:
+        # Extraire l'ID vidéo depuis le nom de fichier
+        video_id_match = re.search(r'(\d+)-video\.mp4$', os.path.basename(video_path))
+        if not video_id_match:
+            return fallback_channel_name
+        
+        video_id = video_id_match.group(1)
+        info_file = os.path.join(os.path.dirname(video_path), f"{video_id}-info.json")
+        
+        if os.path.exists(info_file):
+            with open(info_file, 'r', encoding='utf-8') as f:
+                info_data = json.load(f)
+            
+            # Priorité au display_name
+            if "channel" in info_data and "display_name" in info_data["channel"]:
+                return info_data["channel"]["display_name"]
+            elif "user_name" in info_data:
+                return info_data["user_name"]
+    
+    except Exception as e:
+        print(f"Error extracting channel display_name: {e}")
+    
+    return fallback_channel_name
+
+
 def clean_youtube_title(title):
     """
     Nettoie un titre pour le rendre compatible avec l'API YouTube.
@@ -738,6 +774,11 @@ def process_video(youtube, video_path, config):
 
     # Extract channel name for playlist
     channel_name = extract_channel_name(video_path)
+
+    # Si on est en mode Ganymede, utiliser le display_name des métadonnées
+    if config['ganymede_mode']:
+        channel_name = get_channel_display_name(video_path, channel_name)
+
     if channel_name:
         print(f"Detected channel: {channel_name}")
 
@@ -762,7 +803,7 @@ def process_video(youtube, video_path, config):
         video_title = result.get('title')
         record_upload(video_path, video_id)
 
-        # Add to channel playlist if auto_playlist enabled AND Ganymede mode is active (nouveau comportement)
+        # Add to channel playlist if auto_playlist enabled AND Ganymede mode is active
         if config['auto_playlist'] and channel_name and config['ganymede_mode']:
             add_to_channel_playlist(youtube, video_id, channel_name)
         elif config['auto_playlist'] and channel_name and not config['ganymede_mode']:
@@ -772,18 +813,15 @@ def process_video(youtube, video_path, config):
         webhook_url = config.get('discord_webhook')
         if webhook_url:
             video_url = f"https://www.youtube.com/watch?v={video_id}"
-
-            # URL de la miniature YouTube
             thumbnail_url = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
 
-            # Message avec un embed contenant la miniature
             message = {
                 "embeds": [
                     {
                         "title": video_title,
                         "description": f"Nouvelle vidéo mise en ligne avec succès !",
                         "url": video_url,
-                        "color": 5814783,  # Couleur bleu YouTube
+                        "color": 5814783,
                         "fields": [
                             {
                                 "name": "Chaîne",
@@ -799,8 +837,7 @@ def process_video(youtube, video_path, config):
                         "footer": {
                             "text": "Uploaded with PyYTUploader"
                         },
-                        "timestamp": get_local_timestamp(),  # LIGNE CORRIGÉE
-                        # Ajout de la miniature YouTube
+                        "timestamp": get_local_timestamp(),
                         "image": {
                             "url": thumbnail_url
                         }
