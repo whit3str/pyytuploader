@@ -4,7 +4,6 @@ import json
 import time
 import argparse
 import datetime
-import pytz
 import glob
 import re
 import http.client
@@ -20,6 +19,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from datetime import timezone
+from zoneinfo import ZoneInfo
 
 # Configuration
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube']
@@ -27,6 +27,34 @@ API_SERVICE_NAME = 'youtube'
 API_VERSION = 'v3'
 TOKEN_FILE = 'data/token.json'
 UPLOADS_FILE = 'data/uploads.json'
+
+
+def get_local_timestamp():
+    """
+    Obtient le timestamp local en tenant compte du fuseau horaire défini.
+    Utilise zoneinfo (Python 3.9+) - module standard, pas de dépendance externe.
+    
+    Returns:
+        str: timestamp ISO avec timezone correcte
+    """
+    # Récupérer le fuseau horaire depuis la variable d'environnement
+    tz_name = os.environ.get('TZ', 'Europe/Paris')
+    
+    try:
+        # Créer l'objet timezone
+        local_tz = ZoneInfo(tz_name)
+    except Exception:
+        # Fallback sur Europe/Paris si la timezone n'est pas reconnue
+        local_tz = ZoneInfo('Europe/Paris')
+    
+    # Obtenir l'heure UTC actuelle avec timezone
+    utc_now = datetime.datetime.utcnow().replace(tzinfo=ZoneInfo('UTC'))
+    
+    # Convertir vers le fuseau horaire local
+    local_time = utc_now.astimezone(local_tz)
+    
+    # Retourner le timestamp ISO
+    return local_time.isoformat()
 
 
 def clean_youtube_title(title):
@@ -46,7 +74,7 @@ def clean_youtube_title(title):
     title = title[:100]
     
     # Remplacer les caractères problématiques
-    title = title.replace("\u0026", "&")
+    title = title.replace("\u0026", "&amp;")
     
     # Supprimer les caractères de contrôle et autres caractères problématiques
     import re
@@ -54,7 +82,7 @@ def clean_youtube_title(title):
     title = re.sub(r'[\x00-\x1F\x7F]', '', title)
     
     # Remplacer les caractères spéciaux qui peuvent poser problème
-    title = re.sub(r'[<>:"\/\\|?*]', '', title)
+    title = re.sub(r'[&lt;&gt;:"\/\\|?*]', '', title)
     
     # S'assurer que le titre n'est pas vide après nettoyage
     if not title.strip():
@@ -405,6 +433,8 @@ def upload_video(youtube, video_path, options=None, is_ganymede=False):
             'success': False,
             'error': str(e)
         }
+
+
 def find_playlist_by_name(youtube, playlist_name):
     """
     Recherche une playlist par son nom et retourne son ID.
@@ -687,6 +717,7 @@ def scan_for_videos(config):
 
     return videos_to_upload
 
+
 def process_video(youtube, video_path, config):
     """
     Processes a single video for upload.
@@ -764,7 +795,7 @@ def process_video(youtube, video_path, config):
                         "footer": {
                             "text": "Uploaded with PyYTUploader"
                         },
-                        "timestamp": datetime.datetime.now(pytz.timezone(os.environ.get('TZ', 'Europe/Paris'))).isoformat(),
+                        "timestamp": get_local_timestamp(),  # LIGNE CORRIGÉE
                         # Ajout de la miniature YouTube
                         "image": {
                             "url": thumbnail_url
