@@ -4,6 +4,7 @@ import json
 import time
 import argparse
 import datetime
+import pytz
 import glob
 import re
 import http.client
@@ -18,6 +19,7 @@ from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from datetime import timezone
 
 # Configuration
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube']
