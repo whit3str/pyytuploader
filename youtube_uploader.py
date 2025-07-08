@@ -107,18 +107,27 @@ def clean_youtube_title(title):
         return "Untitled Video"
     
     # Limiter la longueur du titre (YouTube accepte max 100 caractères)
+    # TODO: This simple slicing can break multi-byte characters if a title is >100 chars.
+    # A more robust solution would count grapheme clusters or use a library aware of character widths.
     title = title[:100]
     
-    # Remplacer les caractères problématiques
-    title = title.replace("\u0026", "&amp;")
-    
+    # Note: YouTube handles '&' correctly. Converting to '&amp;' is generally not needed and
+    # would display as '&amp;' in the title. The original line was:
+    # title = title.replace("\u0026", "&amp;")
+    # This line is now removed to allow '&' as is.
+
     # Supprimer les caractères de contrôle et autres caractères problématiques
     import re
     # Supprimer les caractères de contrôle (0x00-0x1F et 0x7F)
     title = re.sub(r'[\x00-\x1F\x7F]', '', title)
     
-    # Remplacer les caractères spéciaux qui peuvent poser problème
-    title = re.sub(r'[&lt;&gt;:"\/\\|?*]', '', title)
+    # Remplacer les caractères spéciaux qui peuvent poser problème.
+    # Original regex r'[&lt;&gt;:"\/\\|?*]' incorrectly included 'l', 'g', 't'
+    # because &lt; and &gt; were treated as literal characters within the class.
+    # YouTube allows '<' and '>' in titles, so they are removed from this list.
+    # Characters to remove: : " / \ | ? *
+    # If '&' should be removed, add it to the class. Currently, it's allowed.
+    title = re.sub(r'[:"\/\\|?*]', '', title)
     
     # S'assurer que le titre n'est pas vide après nettoyage
     if not title.strip():
