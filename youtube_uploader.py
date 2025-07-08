@@ -189,7 +189,14 @@ def get_authenticated_service():
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     client_secrets_file, SCOPES)
-                creds = flow.run_local_server(port=0)
+                # Use a fixed port, disable automatic browser opening, and provide clear messages.
+                # The redirect URI in your Google Cloud Console for this client ID must match http://localhost:27887/
+                creds = flow.run_local_server(
+                    port=27887,
+                    open_browser=False,
+                    auth_code_prompt_message="Please visit this URL to authorize this application: {url}",
+                    success_message="Authentication successful! You can close this browser tab and return to the application."
+                )
             except Exception as e:
                 print(f"Error during authentication: {e}")
                 return None
