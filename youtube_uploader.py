@@ -61,9 +61,12 @@ def delete_token_file():
         print("Token file deleted. Re-authentication will be required.")
 
 
-def get_authenticated_service():
+def get_authenticated_service(interactive=False):
     """
     Authenticates with YouTube API and returns the service object.
+
+    Args:
+        interactive (bool): Whether to run in interactive mode for authentication.
 
     Returns:
         googleapiclient.discovery.Resource: YouTube API service object
@@ -98,7 +101,18 @@ def get_authenticated_service():
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     client_secrets_file, SCOPES)
-                creds = flow.run_console()
+
+                if interactive:
+                    auth_url, _ = flow.authorization_url(prompt='consent')
+                    print(f'Please visit this URL to authorize this application: {auth_url}')
+                    code = input('Enter the authorization code: ')
+                    flow.fetch_token(code=code)
+                    creds = flow.credentials
+                else:
+                    print("Authentication token is invalid or expired, and the application is not running in interactive mode.")
+                    print("Please run with the --reauth flag to re-authenticate.")
+                    return None
+
             except Exception as e:
                 print(f"Error during authentication: {e}")
                 return None
@@ -753,9 +767,8 @@ def run_uploader():
     # Re-authentication mode
     if args.reauth:
         delete_token_file()
-        # After deleting the token, proceed with setup to re-authenticate
         print("Running setup to re-authenticate...")
-        youtube = get_authenticated_service()
+        youtube = get_authenticated_service(interactive=True)
         if youtube:
             print("Re-authentication successful!")
         else:
@@ -765,7 +778,7 @@ def run_uploader():
     # Setup mode
     if args.setup:
         print("Running setup...")
-        youtube = get_authenticated_service()
+        youtube = get_authenticated_service(interactive=True)
         if youtube:
             print("Authentication successful!")
         else:
@@ -774,7 +787,7 @@ def run_uploader():
 
     # Run once mode
     if args.run_once:
-        youtube = get_authenticated_service()
+        youtube = get_authenticated_service(interactive=True)
         if not youtube:
             print("Authentication failed.")
             return
@@ -797,7 +810,7 @@ def run_uploader():
 
     while True:
         try:
-            youtube = get_authenticated_service()
+            youtube = get_authenticated_service(interactive=False)
             if not youtube:
                 print("Authentication failed. Retrying in 5 minutes...")
                 time.sleep(300)
