@@ -26,4 +26,4 @@ ENV YTU_CHECK_INTERVAL="60"
 ENV YTU_CLIENT_SECRETS="/app/data/client_secrets.json"
 
 # Run the application
-CMD ["python", "youtube_uploader.py"]
+ENTRYPOINT ["python", "youtube_uploader.py"]

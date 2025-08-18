@@ -52,6 +52,15 @@ def send_discord_notification(webhook_url, message):
         return False
 
 
+def delete_token_file():
+    """
+    Deletes the token file to force re-authentication.
+    """
+    if os.path.exists(TOKEN_FILE):
+        os.remove(TOKEN_FILE)
+        print("Token file deleted. Re-authentication will be required.")
+
+
 def get_authenticated_service():
     """
     Authenticates with YouTube API and returns the service object.
@@ -89,7 +98,7 @@ def get_authenticated_service():
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     client_secrets_file, SCOPES)
-                creds = flow.run_local_server(port=0)
+                creds = flow.run_console()
             except Exception as e:
                 print(f"Error during authentication: {e}")
                 return None
@@ -569,6 +578,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description='YouTube Uploader')
     parser.add_argument('-s', '--setup', action='store_true', help='Run interactive setup')
+    parser.add_argument('--reauth', action='store_true', help='Force re-authentication by deleting the token file')
     parser.add_argument('-r', '--run-once', action='store_true', help='Run once and exit (don\'t start scheduler)')
     parser.add_argument('-i', '--interval', type=int, help='Set scan interval in minutes')
     parser.add_argument('-f', '--folder', type=str, help='Set videos folder path')
@@ -739,6 +749,18 @@ def run_uploader():
 
     # Create data directory if it doesn't exist
     os.makedirs('data', exist_ok=True)
+
+    # Re-authentication mode
+    if args.reauth:
+        delete_token_file()
+        # After deleting the token, proceed with setup to re-authenticate
+        print("Running setup to re-authenticate...")
+        youtube = get_authenticated_service()
+        if youtube:
+            print("Re-authentication successful!")
+        else:
+            print("Re-authentication failed.")
+        return
 
     # Setup mode
     if args.setup:
