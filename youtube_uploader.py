@@ -654,13 +654,19 @@ def scan_for_videos(config):
 
     # If in Ganymede mode, look specifically for *-video.mp4 files
     if config['ganymede_mode']:
-        for root, _, files in os.walk(videos_folder):
+        for root, dirs, files in os.walk(videos_folder):
+            # Exclure le dossier 'temp'
+            if 'temp' in dirs:
+                dirs.remove('temp')
             for file in files:
                 if file.endswith('-video.mp4'):
                     videos_to_upload.append(os.path.join(root, file))
     else:
         # Standard mode - look for all .mp4 files
-        for root, _, files in os.walk(videos_folder):
+        for root, dirs, files in os.walk(videos_folder):
+            # Exclure le dossier 'temp'
+            if 'temp' in dirs:
+                dirs.remove('temp')
             for file in files:
                 if file.endswith('.mp4'):
                     videos_to_upload.append(os.path.join(root, file))
