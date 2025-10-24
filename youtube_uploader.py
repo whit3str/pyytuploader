@@ -73,83 +73,51 @@ def get_channel_display_name(video_path, fallback_channel_name):
         video_id_match = re.search(r'(\d+)-video\.mp4$', os.path.basename(video_path))
         if not video_id_match:
             return fallback_channel_name
-        
         video_id = video_id_match.group(1)
         info_file = os.path.join(os.path.dirname(video_path), f"{video_id}-info.json")
-        
         if os.path.exists(info_file):
             with open(info_file, 'r', encoding='utf-8') as f:
                 info_data = json.load(f)
-            
             # Priorité au display_name
             if "channel" in info_data and "display_name" in info_data["channel"]:
                 return info_data["channel"]["display_name"]
             elif "user_name" in info_data:
                 return info_data["user_name"]
-    
     except Exception as e:
         print(f"Error extracting channel display_name: {e}")
-    
     return fallback_channel_name
-
 
 def clean_youtube_title(title):
     """
     Nettoie un titre pour le rendre compatible avec l'API YouTube.
-    
     Args:
         title (str): Titre original
-        
     Returns:
         str: Titre nettoyé et valide pour YouTube
     """
     if not title or not title.strip():
         return "Untitled Video"
-    
     # Limiter la longueur du titre (YouTube accepte max 100 caractères)
-    # TODO: This simple slicing can break multi-byte characters if a title is >100 chars.
-    # A more robust solution would count grapheme clusters or use a library aware of character widths.
     title = title[:100]
-    
-    # Note: YouTube handles '&' correctly. Converting to '&amp;' is generally not needed and
-    # would display as '&amp;' in the title. The original line was:
-    # title = title.replace("\u0026", "&amp;")
-    # This line is now removed to allow '&' as is.
-
-    # Supprimer les caractères de contrôle et autres caractères problématiques
-    import re
     # Supprimer les caractères de contrôle (0x00-0x1F et 0x7F)
     title = re.sub(r'[\x00-\x1F\x7F]', '', title)
-    
-    # Remplacer les caractères spéciaux qui peuvent poser problème.
-    # Original regex r'[&lt;&gt;:"\/\\|?*]' incorrectly included 'l', 'g', 't'
-    # because &lt; and &gt; were treated as literal characters within the class.
-    # YouTube allows '<' and '>' in titles, so they are removed from this list.
-    # Characters to remove: : " / \ | ? *
-    # If '&' should be removed, add it to the class. Currently, it's allowed.
-    title = re.sub(r'[:"\/\\|?*]', '', title)
-    
-    # S'assurer que le titre n'est pas vide après nettoyage
+    # Supprimer certains caractères spéciaux
+    title = re.sub(r'[:"/\\|?*]', '', title)
     if not title.strip():
         return "Untitled Video"
-    
     return title.strip()
-
 
 def send_discord_notification(webhook_url, message):
     """
     Envoie une notification à un webhook Discord.
-
     Args:
         webhook_url (str): URL du webhook Discord
         message (dict): Message à envoyer (contenu, embeds, etc.)
-
     Returns:
         bool: True si l'envoi a réussi, False sinon
     """
     if not webhook_url:
         return False
-
     try:
         headers = {'Content-Type': 'application/json'}
         response = requests.post(webhook_url, json=message, headers=headers)
@@ -161,9 +129,21 @@ def send_discord_notification(webhook_url, message):
         return False
 
 
-def get_authenticated_service():
+def delete_token_file():
+    """
+    Deletes the token file to force re-authentication.
+    """
+    if os.path.exists(TOKEN_FILE):
+        os.remove(TOKEN_FILE)
+        print("Token file deleted. Re-authentication will be required.")
+
+
+def get_authenticated_service(interactive=False):
     """
     Authenticates with YouTube API and returns the service object.
+
+    Args:
+        interactive (bool): Whether to run in interactive mode for authentication.
 
     Returns:
         googleapiclient.discovery.Resource: YouTube API service object
@@ -198,14 +178,17 @@ def get_authenticated_service():
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     client_secrets_file, SCOPES)
-                # Use a fixed port, disable automatic browser opening, and provide clear messages.
-                # The redirect URI in your Google Cloud Console for this client ID must match http://localhost:27887/
-                creds = flow.run_local_server(
-                    port=27887,
-                    open_browser=False,
-                    auth_code_prompt_message="Please visit this URL to authorize this application: {url}",
-                    success_message="Authentication successful! You can close this browser tab and return to the application."
-                )
+
+                if interactive:
+                    auth_url, _ = flow.authorization_url(prompt='consent')
+                    print(f'Please visit this URL to authorize this application: {auth_url}')
+                    code = input('Enter the authorization code: ')
+                    flow.fetch_token(code=code)
+                    creds = flow.credentials
+                else:
+                    print("Authentication token is invalid or expired, and the application is not running in interactive mode.")
+                    print("Please run with the --reauth flag to re-authenticate.")
+                    return None
             except Exception as e:
                 print(f"Error during authentication: {e}")
                 return None
@@ -693,6 +676,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description='YouTube Uploader')
     parser.add_argument('-s', '--setup', action='store_true', help='Run interactive setup')
+    parser.add_argument('--reauth', action='store_true', help='Force re-authentication by deleting the token file')
     parser.add_argument('-r', '--run-once', action='store_true', help='Run once and exit (don\'t start scheduler)')
     parser.add_argument('-i', '--interval', type=int, help='Set scan interval in minutes')
     parser.add_argument('-f', '--folder', type=str, help='Set videos folder path')
@@ -874,10 +858,21 @@ def run_uploader():
     # Create data directory if it doesn't exist
     os.makedirs('data', exist_ok=True)
 
+    # Re-authentication mode
+    if args.reauth:
+        delete_token_file()
+        print("Running setup to re-authenticate...")
+        youtube = get_authenticated_service(interactive=True)
+        if youtube:
+            print("Re-authentication successful!")
+        else:
+            print("Re-authentication failed.")
+        return
+
     # Setup mode
     if args.setup:
         print("Running setup...")
-        youtube = get_authenticated_service()
+        youtube = get_authenticated_service(interactive=True)
         if youtube:
             print("Authentication successful!")
         else:
@@ -886,7 +881,7 @@ def run_uploader():
 
     # Run once mode
     if args.run_once:
-        youtube = get_authenticated_service()
+        youtube = get_authenticated_service(interactive=True)
         if not youtube:
             print("Authentication failed.")
             return
@@ -909,7 +904,7 @@ def run_uploader():
 
     while True:
         try:
-            youtube = get_authenticated_service()
+            youtube = get_authenticated_service(interactive=False)
             if not youtube:
                 print("Authentication failed. Retrying in 5 minutes...")
                 time.sleep(300)

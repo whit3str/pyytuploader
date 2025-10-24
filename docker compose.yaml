@@ -2,11 +2,12 @@ version: '3'
 
 services:
   pyytuploader:
-    image: ghcr.io/whit3str/pyytuploader:latest
+  build: .
     container_name: youtube-uploader
     volumes:
       - ./data:/app/data  # For configuration, tokens, and history
       - /path/to/videos:/app/videos  # Mount your videos directory here
+    # To re-authenticate, run: docker-compose run --rm pyytuploader --reauth
     restart: unless-stopped
     environment:
       - TZ=Europe/Paris  # Set your timezone here
