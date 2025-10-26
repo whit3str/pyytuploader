@@ -44,7 +44,7 @@ services:
       - /path/to/videos:/app/videos  # Mount your videos directory here
     restart: unless-stopped
     environment:
-      - TZ=Europe/Paris  # Set your timezone here
+      - TZ=UTC  # Set your timezone here
       - YTU_VIDEOS_FOLDER=/app/videos
       - YTU_PRIVACY_STATUS=private  # Options: private, unlisted, public
       - YTU_CHECK_INTERVAL=60  # Minutes between folder scans
@@ -52,10 +52,10 @@ services:
       - YTU_DISCORD_WEBHOOK=
       # Optional environment variables:
       # - YTU_VIDEO_CATEGORY=20  # Gaming category
-      - YTU_DESCRIPTION=Uploaded with YTU Automated Uploader
-      - YTU_GANYMEDE_MODE=true
+      # - YTU_DESCRIPTION=Uploaded with YTU Automated Uploader
+      # - YTU_GANYMEDE_MODE=true
       # - YTU_TAGS=auto-upload,ytu,video
-      - YTU_AUTO_PLAYLIST=true
+      # - YTU_AUTO_PLAYLIST=true
 ```
 
 ## Configuration
@@ -65,7 +65,7 @@ services:
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
 3. Enable the YouTube Data v3 API
-4. Create OAuth 2.0 credentials
+4. Create OAuth 2.0 credentials (Type=Desktop)
 5. Download the JSON file and place it in the /app/data/client_secrets.json folder
 
 ### Environment Variables
