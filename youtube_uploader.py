@@ -87,7 +87,12 @@ def load_credentials():
             token_data = json.load(token)
             
         creds = Credentials.from_authorized_user_info(token_data, SCOPES)
-        print(f"Credentials loaded from {TOKEN_FILE}")
+        print(f"✓ Credentials loaded from {TOKEN_FILE}")
+        
+        # Vérifier la présence du refresh_token
+        if not creds.refresh_token:
+            print("⚠ WARNING: No refresh_token found in saved credentials!")
+            print("⚠ Le token ne pourra pas être rafraîchi automatiquement.")
         
         # Afficher les informations sur l'expiration du token
         if creds.expiry:
@@ -114,8 +119,17 @@ def refresh_credentials(creds):
     Returns:
         Credentials: Credentials rafraîchis ou None si erreur
     """
-    if not creds.refresh_token:
-        print("No refresh token available. Re-authentication required.")
+    if not creds or not hasattr(creds, 'refresh_token') or not creds.refresh_token:
+        print("="*60)
+        print("ERROR: No refresh token available!")
+        print("="*60)
+        print("Le refresh_token est nécessaire pour renouveler automatiquement l'accès.")
+        print("")
+        print("SOLUTION:")
+        print("1. Supprimez le fichier: data/token.json")
+        print("2. Relancez avec: python youtube_uploader.py --reauth")
+        print("3. Lors de l'autorisation Google, assurez-vous d'accepter tous les accès")
+        print("="*60)
         return None
         
     try:
@@ -125,16 +139,25 @@ def refresh_credentials(creds):
         
         # Sauvegarder les nouveaux credentials
         if save_credentials(creds):
-            print("Token refreshed successfully!")
+            print("✓ Token refreshed successfully!")
             if creds.expiry:
                 time_until_expiry = creds.expiry - datetime.datetime.utcnow()
-                print(f"New token expires in: {time_until_expiry}")
-        
+                print(f"✓ New token expires in: {time_until_expiry}")
+        else:
+            print("Warning: Token refreshed but failed to save to disk")
+            
         return creds
         
     except Exception as e:
-        print(f"Error refreshing credentials: {e}")
-        print("Token refresh failed. Re-authentication may be required.")
+        print("="*60)
+        print(f"ERROR: Token refresh failed!")
+        print(f"Error details: {type(e).__name__}: {e}")
+        print("="*60)
+        print("SOLUTION:")
+        print("1. Vérifiez votre connexion internet")
+        print("2. Supprimez data/token.json")
+        print("3. Relancez avec: python youtube_uploader.py --reauth")
+        print("="*60)
         return None
 
 
@@ -272,6 +295,28 @@ def send_discord_notification(webhook_url, message):
         return False
 
 
+def is_running_in_docker():
+    """
+    Détecte si l'application tourne dans un conteneur Docker.
+    
+    Returns:
+        bool: True si dans Docker, False sinon
+    """
+    # Vérifier si le fichier /.dockerenv existe (créé par Docker)
+    if os.path.exists('/.dockerenv'):
+        return True
+    
+    # Vérifier si on est dans un cgroup Docker
+    try:
+        with open('/proc/1/cgroup', 'r') as f:
+            return 'docker' in f.read()
+    except:
+        pass
+    
+    # Vérifier les variables d'environnement Docker
+    return os.environ.get('DOCKER_CONTAINER', '').lower() == 'true'
+
+
 def delete_token_file():
     """
     Deletes the token file to force re-authentication.
@@ -329,17 +374,81 @@ def get_authenticated_service(interactive=False):
                 client_secrets_file, SCOPES)
 
             if interactive:
-                # Mode interactif
+                # Détecter l'environnement
+                in_docker = is_running_in_docker()
+                
+                print("="*60)
                 print("Running interactive authentication...")
-                auth_url, _ = flow.authorization_url(
-                    prompt='consent',
-                    access_type='offline',  # Important pour obtenir un refresh_token
-                    include_granted_scopes='true'
-                )
-                print(f'Please visit this URL to authorize this application: {auth_url}')
-                code = input('Enter the authorization code: ')
-                flow.fetch_token(code=code)
-                creds = flow.credentials
+                if in_docker:
+                    print("🐳 Docker environment detected - Using OOB flow")
+                print("="*60)
+                
+                # Priorité à la méthode OOB (compatible Docker)
+                use_oob = in_docker or os.environ.get('YTU_USE_OOB', '').lower() == 'true'
+                
+                if use_oob:
+                    # Méthode OOB (Out-of-Band) - Compatible Docker
+                    print("\n📋 Méthode manuelle (compatible Docker)")
+                    print("="*60)
+                    
+                    flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+                    auth_url, _ = flow.authorization_url(
+                        prompt='consent',
+                        access_type='offline'
+                    )
+                    
+                    print("\n1. Visitez cette URL dans votre navigateur:")
+                    print(f"   {auth_url}")
+                    print("\n2. Autorisez l'application")
+                    print("3. Copiez le code d'autorisation affiché")
+                    print("="*60 + "\n")
+                    
+                    code = input('Entrez le code d\'autorisation: ').strip()
+                    flow.fetch_token(code=code)
+                    creds = flow.credentials
+                    
+                else:
+                    # Méthode serveur local (pour environnement desktop)
+                    print("\n🖥️  Méthode serveur local (desktop)")
+                    print("Un navigateur va s'ouvrir automatiquement.")
+                    print("="*60 + "\n")
+                    
+                    try:
+                        creds = flow.run_local_server(
+                            port=0,
+                            prompt='consent',
+                            authorization_prompt_message='Please visit this URL: {url}',
+                            success_message='✓ Authentication successful! You can close this window.',
+                            open_browser=True
+                        )
+                    except Exception as e:
+                        print(f"\n⚠ Erreur avec le serveur local: {e}")
+                        print("\nRetour à la méthode manuelle...\n")
+                        
+                        # Fallback sur OOB
+                        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+                        auth_url, _ = flow.authorization_url(
+                            prompt='consent',
+                            access_type='offline'
+                        )
+                        print(f'Visitez cette URL: {auth_url}\n')
+                        code = input('Entrez le code d\'autorisation: ').strip()
+                        flow.fetch_token(code=code)
+                        creds = flow.credentials
+                
+                # Vérifier que le refresh_token a bien été obtenu
+                print("\n" + "="*60)
+                if creds.refresh_token:
+                    print("✓ SUCCESS: Refresh token obtained!")
+                    print("✓ L'authentification automatique est maintenant configurée.")
+                else:
+                    print("⚠ WARNING: No refresh token received!")
+                    print("⚠ Cela peut arriver si vous aviez déjà autorisé cette app.")
+                    print("\nSOLUTION:")
+                    print("1. Allez sur: https://myaccount.google.com/permissions")
+                    print("2. Révoquez l'accès pour votre application YouTube Uploader")
+                    print("3. Relancez: python youtube_uploader.py --reauth")
+                print("="*60 + "\n")
             else:
                 print("Authentication token is invalid or expired, and the application is not running in interactive mode.")
                 print("Please run with the --reauth flag to re-authenticate.")
@@ -349,9 +458,23 @@ def get_authenticated_service(interactive=False):
             print(f"Error during authentication: {e}")
             return None
 
+        # Vérifier que le refresh_token existe avant de sauvegarder
+        if not creds.refresh_token:
+            print("\n" + "="*60)
+            print("⚠ CRITICAL WARNING: No refresh_token obtained!")
+            print("="*60)
+            print("L'authentification ne sera pas persistante.")
+            print("Vous devrez vous réauthentifier à chaque fois.")
+            print("\nPour corriger:")
+            print("1. Révoquezl'accès: https://myaccount.google.com/permissions")
+            print("2. Relancez: python youtube_uploader.py --reauth")
+            print("="*60 + "\n")
+        
         # Sauvegarder les nouveaux credentials
         if not save_credentials(creds):
             print("Warning: Failed to save credentials")
+        elif creds.refresh_token:
+            print("✓ Credentials saved with refresh_token")
 
     # Créer le service YouTube
     try:
