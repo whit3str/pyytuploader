@@ -10,6 +10,7 @@ import http.client
 import httplib2
 import random
 import requests
+import google.auth.exceptions
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
 from googleapiclient.discovery import build
@@ -42,8 +43,14 @@ def is_token_expired(creds):
     if not creds or not creds.expiry:
         return True
     
+    # Handle both timezone-aware and naive datetimes (google-auth >= 2.x may use aware datetimes)
+    if creds.expiry.tzinfo is not None:
+        now = datetime.datetime.now(timezone.utc)
+    else:
+        now = datetime.datetime.utcnow()
+
     # Ajouter une marge de sécurité de 5 minutes
-    buffer_time = datetime.datetime.utcnow() + timedelta(minutes=5)
+    buffer_time = now + timedelta(minutes=5)
     return creds.expiry <= buffer_time
 
 
@@ -112,6 +119,9 @@ def load_credentials():
 def refresh_credentials(creds):
     """
     Rafraîchit les credentials en utilisant le refresh_token.
+
+    Distinguishes permanent failures (revoked/expired refresh token → deletes token file)
+    from temporary failures (network errors → keeps token file for next retry).
     
     Args:
         creds: Credentials object
@@ -141,22 +151,44 @@ def refresh_credentials(creds):
         if save_credentials(creds):
             print("✓ Token refreshed successfully!")
             if creds.expiry:
-                time_until_expiry = creds.expiry - datetime.datetime.utcnow()
+                # Use timezone-aware comparison
+                if creds.expiry.tzinfo is not None:
+                    now = datetime.datetime.now(timezone.utc)
+                else:
+                    now = datetime.datetime.utcnow()
+                time_until_expiry = creds.expiry - now
                 print(f"✓ New token expires in: {time_until_expiry}")
         else:
             print("Warning: Token refreshed but failed to save to disk")
             
         return creds
-        
-    except Exception as e:
+
+    except google.auth.exceptions.RefreshError as e:
+        # Permanent failure: the refresh token itself is invalid/revoked/expired.
+        # Typical causes: app in "Testing" mode (7-day limit), user revoked access,
+        # or too many tokens issued for the same app+user pair.
         print("="*60)
-        print(f"ERROR: Token refresh failed!")
+        print("ERROR: Refresh token is permanently invalid!")
         print(f"Error details: {type(e).__name__}: {e}")
         print("="*60)
+        print("The refresh token has been revoked or has expired.")
+        print("Deleting invalid token file so re-authentication can be attempted.")
+        print("")
         print("SOLUTION:")
-        print("1. Vérifiez votre connexion internet")
-        print("2. Supprimez data/token.json")
-        print("3. Relancez avec: python youtube_uploader.py --reauth")
+        print("1. Run the container with --reauth to re-authenticate interactively.")
+        print("2. If your OAuth app is in 'Testing' mode, tokens expire after 7 days.")
+        print("   → Publish your app to Production in Google Cloud Console.")
+        print("="*60)
+        delete_token_file()
+        return None
+
+    except Exception as e:
+        # Temporary failure: network error, timeout, etc.
+        # Keep the token file — the next retry may succeed.
+        print("="*60)
+        print(f"WARNING: Temporary token refresh error (token file preserved).")
+        print(f"Error details: {type(e).__name__}: {e}")
+        print("Will retry on next authentication cycle.")
         print("="*60)
         return None
 
@@ -350,11 +382,7 @@ def get_authenticated_service(interactive=False):
         elif creds.expired and creds.refresh_token:
             print("Credentials expired, attempting to refresh...")
             creds = refresh_credentials(creds)
-            
-            # Si le rafraîchissement échoue, supprimer le token
-            if not creds:
-                print("Refresh failed, deleting token file...")
-                delete_token_file()
+            # refresh_credentials handles token file deletion on permanent failures
         elif is_token_expired(creds) and creds.refresh_token:
             print("Credentials expiring soon, proactively refreshing...")
             creds = refresh_credentials(creds)
@@ -1205,6 +1233,7 @@ def run_uploader():
     youtube = None
     last_auth_check = datetime.datetime.utcnow()
     auth_check_interval = timedelta(minutes=30)  # Vérifier l'auth toutes les 30 minutes
+    auth_failure_notified = False  # Track if we already sent a Discord alert for the current failure streak
 
     while True:
         try:
@@ -1218,9 +1247,22 @@ def run_uploader():
                 
                 if not youtube:
                     print("Authentication failed. Retrying in 5 minutes...")
+                    # Send a Discord alert once per failure streak so you know manual re-auth is needed
+                    if not auth_failure_notified and config['discord_webhook']:
+                        send_discord_notification(config['discord_webhook'], {
+                            "content": (
+                                "⚠️ **YouTube Uploader — Authentication Failed**\n"
+                                "The OAuth2 token could not be refreshed automatically.\n"
+                                "Manual re-authentication is required:\n"
+                                "`docker exec -it <container> python youtube_uploader.py --reauth`"
+                            )
+                        })
+                        auth_failure_notified = True
                     time.sleep(300)
                     continue
-                    
+
+                # Auth succeeded — reset the notification flag
+                auth_failure_notified = False
                 if not test_api_connection(youtube):
                     print("API connection test failed. Retrying in 5 minutes...")
                     youtube = None
